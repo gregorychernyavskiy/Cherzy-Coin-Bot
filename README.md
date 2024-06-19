@@ -1,135 +1,199 @@
-### Step-by-Step Guide for Your Project
+   ## 1. Setting Up the Telegram Bot
 
-#### Project Overview
+   ### 1.1. Creating the Telegram Bot
 
-This project involves creating a powerful bot using Python, which fetches real-time cryptocurrency prices and delivers them through Telegram. The bot is deployed on an AWS EC2 instance to ensure continuous operation, leveraging PuTTY and Ubuntu for setup and management.
+   1. **Create a Telegram Bot**:
+      - Open Telegram and search for "BotFather".
+      - Start a chat with BotFather and use the command `/newbot` to create a new bot.
+      - Follow the prompts to give your bot a name and username.
+      - BotFather will provide you with a token. Save this token; you will need it later.
 
----
+   2. **Get Your Chat ID**:
+      - Start a chat with your bot and send a message.
+      - Visit `https://api.telegram.org/bot<YourBOTToken>/getUpdates` in a web browser, replacing `<YourBOTToken>` with your actual bot token.
+      - Look for `"chat": {"id": <YourChatID>}` in the JSON response to find your chat ID.
 
-### 1. **Project Description and Technologies Used**
+   ### 1.2. Coding the Telegram Bot
 
-1. **Telegram API**: Used to create and manage the bot that interacts with users.
-2. **Crypto API**: Fetches real-time cryptocurrency prices.
-3. **Python**: Programming language used to develop the bot.
-4. **AWS EC2**: Cloud service used to deploy and run the bot 24/7.
-5. **PuTTY**: SSH client used to manage the EC2 instance.
-6. **Ubuntu**: Operating system used on the EC2 instance for running the bot.
+   1. **Install Required Libraries**:
+      ```sh
+      pip install python-telegram-bot aiohttp
+      ```
 
----
+   2. **Create the Python Script**:
 
-### 2. **Setting Up the Telegram Bot**
+      ```python
+      import telegram
+      import asyncio
+      import os
+      from aiohttp import ClientSession
 
-#### 2.1. **Creating the Telegram Bot**
+      # Your Telegram credentials
+      chat_id = 'your-chat-id'
+      bot_token = 'your-bot-token'
+      bot = telegram.Bot(token=bot_token)
 
-1. **Create a Telegram Bot**:
-   - Open Telegram and search for "BotFather".
-   - Start a chat with BotFather and use the command `/newbot` to create a new bot.
-   - Follow the prompts to give your bot a name and username.
-   - BotFather will provide you with a token. Save this token; you will need it later.
+      # Crypto symbols
+      symbols = {
+          'Bitcoin': 'BTCUSDT_UMCBL',
+          'Ethereum': 'ETHUSDT_UMCBL',
+          'BNB': 'BNBUSDT_UMCBL',
+          'Solana': 'SOLUSDT_UMCBL',
+          'USD Coin': 'USDCUSDT_UMCBL',
+          'XRP': 'XRPUSDT_UMCBL',
+          'Dogecoin': 'DOGEUSDT_UMCBL',
+          'Toncoin': 'TONUSDT_UMCBL',
+          'Cardano': 'ADAUSDT_UMCBL',
+          'Shiba Inu': 'SHIBUSDT_UMCBL'
+      }
 
-2. **Get Your Chat ID**:
-   - Start a chat with your bot and send a message.
-   - Visit `https://api.telegram.org/bot<YourBOTToken>/getUpdates` in a web browser, replacing `<YourBOTToken>` with your actual bot token.
-   - Look for `"chat": {"id": <YourChatID>}` in the JSON response to find your chat ID.
+      # Function to fetch price from the API
+      async def fetch_price(session, symbol):
+          marketprice = f'https://capi.bitget.com/api/mix/v1/market/ticker?symbol={symbol}'
+          try:
+              async with session.get(marketprice) as res:
+                  if res.status == 200:
+                      data = await res.json()
+                      if data and 'data' in data and 'last' in data['data']:
+                          return float(data['data']['last'])
+                      else:
+                          return 'Price data not available'
+                  else:
+                      return 'Failed to retrieve data'
+          except Exception as e:
+              return f'Error: {e}'
 
-#### 2.2. **Coding the Telegram Bot**
+      # Function to fetch prices and send messages
+      async def fetch_prices_and_send():
+          async with ClientSession() as session:
+              while True:
+                  message_lines = []
 
-1. **Install Required Libraries**:
-   ```sh
-   pip install python-telegram-bot aiohttp python-dotenv
-   ```
+                  for name, symbol in symbols.items():
+                      price = await fetch_price(session, symbol)
+                      if isinstance(price, float):
+                          message_lines.append(f'{name}: ${price:,.8f}' if name == 'Shiba Inu' else f'{name}: ${price:,.2f}')
+                      else:
+                          message_lines.append(f'{name}: {price}')
 
-2. **Create the Python Script**:
-   - Here is an example script:
-     ```python
-     import telegram
-     import asyncio
-     import os
-     from aiohttp import ClientSession
-     from dotenv import load_dotenv
+                  message = '\n'.join(message_lines)
+                  print(message)
 
-     # Load environment variables
-     load_dotenv()
+                  try:
+                      await bot.send_message(chat_id=chat_id, text=message)
+                  except telegram.error.BadRequest as e:
+                      print(f"Failed to send message: {e}")
 
-     # Your Telegram credentials
-     CHAT_ID = os.getenv('CHAT_ID', 'your-chat-id')
-     BOT_TOKEN = os.getenv('BOT_TOKEN', 'your-bot-token')
-     bot = telegram.Bot(token=BOT_TOKEN)
+                  await asyncio.sleep(60)  # Adjust the sleep time as needed
 
-     # Crypto symbols
-     symbols = {
-         'Bitcoin': 'BTCUSDT_UMCBL',
-         'Ethereum': 'ETHUSDT_UMCBL',
-         'BNB': 'BNBUSDT_UMCBL',
-         'Solana': 'SOLUSDT_UMCBL',
-         'USD Coin': 'USDCUSDT_UMCBL',
-         'XRP': 'XRPUSDT_UMCBL',
-         'Dogecoin': 'DOGEUSDT_UMCBL',
-         'Toncoin': 'TONUSDT_UMCBL',
-         'Cardano': 'ADAUSDT_UMCBL',
-         'Shiba Inu': 'SHIBUSDT_UMCBL'
-     }
+      # Main function to run the bot
+      async def main():
+          await fetch_prices_and_send()
 
-     async def fetch_price(session, symbol):
-         marketprice = f'https://capi.bitget.com/api/mix/v1/market/ticker?symbol={symbol}'
-         try:
-             async with session.get(marketprice) as res:
-                 if res.status == 200:
-                     data = await res.json()
-                     if data and 'data' in data and 'last' in data['data']:
-                         return float(data['data']['last'])
-                     else:
-                         return 'Price data not available'
-                 else:
-                     return 'Failed to retrieve data'
-         except Exception as e:
-             return f'Error: {e}'
+      if __name__ == '__main__':
+          asyncio.run(main())
+      ```
 
-     async def fetch_prices_and_send():
-         async with ClientSession() as session:
-             while True:
-                 message_lines = []
+   3. **Explanation of the Code**
 
-                 for name, symbol in symbols.items():
-                     price = await fetch_price(session, symbol)
-                     if isinstance(price, float):
-                         message_lines.append(f'{name}: ${price:,.8f}' if name == 'Shiba Inu' else f'{name}: ${price:,.2f}')
-                     else:
-                         message_lines.append(f'{name}: {price}')
+      - **Imports**:
+        ```python
+        import telegram
+        import asyncio
+        import os
+        from aiohttp import ClientSession
+        ```
+        - `telegram`: Library to interact with the Telegram Bot API.
+        - `asyncio`: Provides support for asynchronous programming in Python.
+        - `os`: Used to interact with the operating system.
+        - `ClientSession` from `aiohttp`: Allows for making asynchronous HTTP requests.
 
-                 message = '\n'.join(message_lines)
-                 print(message)
+      - **Telegram Credentials**:
+        ```python
+        chat_id = 'your-chat-id'
+        bot_token = 'your-bot-token'
+        bot = telegram.Bot(token=bot_token)
+        ```
+        - `chat_id`: The ID of the Telegram chat where messages will be sent.
+        - `bot_token`: The token for your Telegram bot.
+        - `bot`: An instance of the Telegram Bot.
 
-                 try:
-                     await bot.send_message(chat_id=CHAT_ID, text=message)
-                 except telegram.error.BadRequest as e:
-                     print(f"Failed to send message: {e}")
+      - **Crypto Symbols**:
+        ```python
+        symbols = {
+            'Bitcoin': 'BTCUSDT_UMCBL',
+            'Ethereum': 'ETHUSDT_UMCBL',
+            'BNB': 'BNBUSDT_UMCBL',
+            'Solana': 'SOLUSDT_UMCBL',
+            'USD Coin': 'USDCUSDT_UMCBL',
+            'XRP': 'XRPUSDT_UMCBL',
+            'Dogecoin': 'DOGEUSDT_UMCBL',
+            'Toncoin': 'TONUSDT_UMCBL',
+            'Cardano': 'ADAUSDT_UMCBL',
+            'Shiba Inu': 'SHIBUSDT_UMCBL'
+        }
+        ```
+        - A dictionary mapping cryptocurrency names to their corresponding symbols used in the API.
 
-                 await asyncio.sleep(60)  # Adjust the sleep time as needed
+      - **Fetch Price Function**:
+        ```python
+        async def fetch_price(session, symbol):
+            marketprice = f'https://capi.bitget.com/api/mix/v1/market/ticker?symbol={symbol}'
+            try:
+                async with session.get(marketprice) as res:
+                    if res.status == 200:
+                        data = await res.json()
+                        if data and 'data' in data and 'last' in data['data']:
+                            return float(data['data']['last'])
+                        else:
+                            return 'Price data not available'
+                    else:
+                        return 'Failed to retrieve data'
+            except Exception as e:
+                return f'Error: {e}'
+        ```
+        - Asynchronously fetches the current price for a given cryptocurrency symbol from the Bitget API.
 
-     async def main():
-         await fetch_prices_and_send()
+      - **Fetch Prices and Send Messages Function**:
+        ```python
+        async def fetch_prices_and_send():
+            async with ClientSession() as session:
+                while True:
+                    message_lines = []
 
-     if __name__ == '__main__':
-         asyncio.run(main())
-     ```
+                    for name, symbol in symbols.items():
+                        price = await fetch_price(session, symbol)
+                        if isinstance(price, float):
+                            message_lines.append(f'{name}: ${price:,.8f}' if name == 'Shiba Inu' else f'{name}: ${price:,.2f}')
+                        else:
+                            message_lines.append(f'{name}: {price}')
 
-3. **Store Environment Variables**:
-   - Create a `.env` file in the same directory as your script with the following content:
-     ```
-     BOT_TOKEN=your-bot-token
-     CHAT_ID=your-chat-id
-     ```
+                    message = '\n'.join(message_lines)
+                    print(message)
 
-4. **Create `requirements.txt`**:
-   - List the dependencies in a `requirements.txt` file:
-     ```
-     python-telegram-bot==13.7
-     aiohttp==3.8.1
-     python-dotenv==0.19.2
-     ```
+                    try:
+                        await bot.send_message(chat_id=chat_id, text=message)
+                    except telegram.error.BadRequest as e:
+                        print(f"Failed to send message: {e}")
 
----
+                    await asyncio.sleep(60)  # Adjust the sleep time as needed
+        ```
+        - Continuously fetches the prices for all cryptocurrencies in the `symbols` dictionary and sends a message with the updated prices to the specified Telegram chat every 60 seconds.
+
+      - **Main Function**:
+        ```python
+        async def main():
+            await fetch_prices_and_send()
+        ```
+        - Calls the `fetch_prices_and_send` function to start the process.
+
+      - **Run the Bot**:
+        ```python
+        if __name__ == '__main__':
+            asyncio.run(main())
+        ```
+        - Runs the `main` function when the script is executed.
+
 
 ### 3. **Fetching Cryptocurrency Prices with the Crypto API**
 
