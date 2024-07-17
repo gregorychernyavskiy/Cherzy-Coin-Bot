@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-chat_id = os.getenv('CHAT_ID', '7349055804')
-bot_token = os.getenv('BOT_TOKEN', '7191322365:AAFj2ge-4Q1onaKqtAc3MPEc1QujYiOTuVM')
+chat_id = os.getenv('CHAT_ID', 'your_chat_id')
+bot_token = os.getenv('BOT_TOKEN', 'your_bot_token')
 bot = telegram.Bot(token=bot_token)
 
 symbols = {
