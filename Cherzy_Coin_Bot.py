@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-chat_id = os.getenv('CHAT_ID', 'your_chat_id')
-bot_token = os.getenv('BOT_TOKEN', 'your_bot_token')
+chat_id = os.getenv('CHAT_ID')
+bot_token = os.getenv('BOT_TOKEN')
 bot = telegram.Bot(token=bot_token)
 
 symbols = {
@@ -35,30 +35,30 @@ async def fetch_price(session, symbol):
                     return 'Price data not available'
             else:
                 return 'Failed to retrieve data'
-    except Exception as e:
-        return f'Error: {e}'
+        except Exception as e:
+            return f'Error: {e}'
 
 async def fetch_prices_and_send():
     async with ClientSession() as session:
-        while True:
-            message_lines = []
+        message_lines = []
 
-            for name, symbol in symbols.items():
-                price = await fetch_price(session, symbol)
-                if isinstance(price, float):
-                    message_lines.append(f'{name}: ${price:,.8f}' if name == 'Shiba Inu' else f'{name}: ${price:,.2f}')
-                else:
-                    message_lines.append(f'{name}: {price}')
+        for name, symbol in symbols.items():
+            print(f"Fetching price for {name}...")
+            price = await fetch_price(session, symbol)
+            if isinstance(price, float):
+                message_lines.append(f'{name}: ${price:,.8f}' if name == 'Shiba Inu' else f'{name}: ${price:,.2f}')
+            else:
+                message_lines.append(f'{name}: {price}')
 
-            message = '\n'.join(message_lines)
-            print(message)
+        message = '\n'.join(message_lines)
+        print("Constructed message:")
+        print(message)
 
-            try:
-                await bot.send_message(chat_id=chat_id, text=message)
-            except telegram.error.BadRequest as e:
-                print(f"Failed to send message: {e}")
-
-            await asyncio.sleep(60)  # Adjust the sleep time as needed
+        try:
+            await bot.send_message(chat_id=chat_id, text=message)
+            print(f"Message sent to chat ID {chat_id}")
+        except telegram.error.BadRequest as e:
+            print(f"Failed to send message: {e}")
 
 async def main():
     await fetch_prices_and_send()
